@@ -54,6 +54,7 @@ def _chachapoly_decryption(ciphertext: bytes, key: bytes, nonce: bytes) -> bytes
     cleartext = chacha.decrypt(nonce, ciphertext, None)
     return cleartext
 
+
 def encrypt(cleartext: str, password: bytes, mode) -> tuple[bytes, bytes]:
     # Prep for encryption. Used nonce by argon and AES
     nonce = secrets.randbits(96).to_bytes(length=12)
