@@ -28,7 +28,7 @@ def _argon_the_password(password: bytes, salt: bytes) -> bytes:
     salt = _.to_bytes(length=12)
     return argon.derive(password)
 
-def _aes_gcm_encrypt(cleartext: bytes, key: bytes, nonce: bytes):
+def _aes_gcm_encrypt(cleartext: bytes, key: bytes, nonce: bytes) -> bytes:
     padder = PKCS7(128).padder()
     padded_cleartext = padder.update(cleartext)
     padded_cleartext += padder.finalize()
@@ -36,7 +36,7 @@ def _aes_gcm_encrypt(cleartext: bytes, key: bytes, nonce: bytes):
     ciphertext = aes.encrypt(nonce, padded_cleartext, None)
     return ciphertext
 
-def _aes_gcm_decrypt(ciphertext: bytes, key: bytes, nonce: bytes):    
+def _aes_gcm_decrypt(ciphertext: bytes, key: bytes, nonce: bytes) -> bytes:    
     unpadder = PKCS7(128).unpadder()
     aes = AESGCM(key)
     cleartext_padded = aes.decrypt(nonce, ciphertext, None)
@@ -44,8 +44,17 @@ def _aes_gcm_decrypt(ciphertext: bytes, key: bytes, nonce: bytes):
     cleartext += unpadder.finalize()
     return cleartext
 
+def _chachapoly_encryption(cleartext: bytes, key: bytes, nonce: bytes) -> bytes:
+    chacha = ChaCha20Poly1305(key)
+    ciphertext = chacha.encrypt(nonce, cleartext, None)
+    return ciphertext
 
-def encrypt(cleartext: str, password: bytes, mode):
+def _chachapoly_decryption(ciphertext: bytes, key: bytes, nonce: bytes) -> bytes:
+    chacha = ChaCha20Poly1305(key)
+    cleartext = chacha.decrypt(nonce, ciphertext, None)
+    return cleartext
+
+def encrypt(cleartext: str, password: bytes, mode) -> tuple[bytes, bytes]:
     # Prep for encryption. Used nonce by argon and AES
     nonce = secrets.randbits(96).to_bytes(length=12)
     secret = _argon_the_password(password, nonce)
@@ -55,23 +64,36 @@ def encrypt(cleartext: str, password: bytes, mode):
     match mode:
         case MODES.AESGCM:
             ciphertext = _aes_gcm_encrypt(text, secret, nonce)
+        case MODES.CHACHA20POLY:
+            ciphertext = _chachapoly_encryption(text, secret, nonce)
+        case _:
+            raise NotImplementedError("Encryption mode not found. Try using the MODES enum.")
     
     return (ciphertext, nonce)
     
 
-def decrypt(ciphertext: bytes, password: bytes, nonce: bytes, mode):
+def decrypt(ciphertext: bytes, password: bytes, nonce: bytes, mode) -> bytes:
     secret = _argon_the_password(password, nonce)
     cleartext: bytes = b""
 
     match mode:
         case MODES.AESGCM:
             cleartext = _aes_gcm_decrypt(ciphertext, secret, nonce)
+        case MODES.CHACHA20POLY:
+            cleartext = _chachapoly_decryption(ciphertext, secret, nonce)
+        case _:
+            raise NotImplementedError("Decryption mode not found. Try using the MODES enum.")
     
-    return cleartext.decode("utf-8")
+    return cleartext
 
 
 if __name__ == "__main__":
     text = "This is a test text"
     encrypted = encrypt(text, b"test123", MODES.AESGCM)
     print(encrypted[0], encrypted[1])
-    print(decrypt(encrypted[0], b"test123", encrypted[1], MODES.AESGCM))
+    print(decrypt(encrypted[0], b"test123", encrypted[1], MODES.AESGCM).decode("utf-8"))
+
+    text2 = "Cha cha is a dance"
+    encrypted2 = encrypt(text2, b"chacha12", MODES.CHACHA20POLY)
+    print(encrypted2[0], encrypted2[1])
+    print(decrypt(encrypted2[0], b"chacha12", encrypted2[1], MODES.CHACHA20POLY).decode("utf-8"))
