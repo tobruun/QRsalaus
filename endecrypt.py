@@ -71,7 +71,6 @@ def encrypt(cleartext: str, password: bytes, mode) -> tuple[bytes, bytes]:
     
     return (ciphertext, nonce)
     
-
 def decrypt(ciphertext: bytes, password: bytes, nonce: bytes, mode) -> bytes:
     secret = _argon_the_password(password, nonce)
     cleartext: bytes = b""
