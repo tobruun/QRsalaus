@@ -11,6 +11,7 @@ from enum import Enum
 
 class MODES(Enum):
     AESGCM = 1
+    CHACHA20POLY = 2
 
 def _argon_the_password(password: bytes, salt: bytes) -> bytes:
     # OWASP recommendation with 12288 kb of memory is 3 iterations with 1 lane, using a bit longer process
@@ -21,6 +22,10 @@ def _argon_the_password(password: bytes, salt: bytes) -> bytes:
         lanes=2,
         memory_cost=12288
     )
+    # To avoid nonce reuse, increase the value by 1. Only done internally
+    _ = int.from_bytes(salt)
+    _ += 1
+    salt = _.to_bytes(length=12)
     return argon.derive(password)
 
 def _aes_gcm_encrypt(cleartext: bytes, key: bytes, nonce: bytes):
