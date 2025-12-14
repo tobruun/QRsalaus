@@ -30,10 +30,9 @@ def make_qr(input: str, password: str, mode: endecrypt.MODES):
     print("Saved at:", os.path.abspath(save_path))
 
 ## read the qr
-def read_qr(qr, password):
+def read_qr(qr, password: str):
     ## makes a list of the image and it's format
     decoded = decode(Image.open(qr))
-
     ## put the hash into data
     data = decoded[0].data.decode()
 
@@ -43,14 +42,8 @@ def read_qr(qr, password):
     nonce = header[:12]
     encrypted_data = data[header_length:]
 
-    # Extract encryption scheme and password from the header
-    header_contents = header.decode()
-    if "ENCRYPTION_SCHEME:" in header_contents:
-        _, encryption_scheme = header_contents.split(":")
-        print(f"Encrypted QR contents with scheme: {encryption_scheme}")
-
     try:
-        decrypted_text = decrypt(encrypted_data, password)
+        decrypted_text = endecrypt.decrypt(encrypted_data, password.encode(), nonce, counter)
         print(f"\nDecrypted result:")
         print(decrypted_text)
     except Exception as e:
@@ -62,9 +55,9 @@ def main():
     example = "http://google.com"
     password = "password123"
 
-    make_qr(example, password, endecrypt.MODES.AESGCM)
+    make_qr(example, password, endecrypt.MODES.NONE)
 
-    print(read_qr("generated.png", password))
+    #print(read_qr("generated.png", password))
 
 
 if __name__ == "__main__":
