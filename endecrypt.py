@@ -11,6 +11,7 @@ from enum import Enum
 # General structure for password decryption: Passphrase and ciphertext in -> Argon2id Passphrase -> Try decrypt -> depad -> output cleartext
 
 class MODES(Enum):
+    NONE = 0
     AESGCM = 1
     AESCTR = 2
     CHACHA20POLY = 3
@@ -77,6 +78,8 @@ def _aes_ctr_decrypt(ciphertext: bytes, key: bytes, nonce: bytes) -> bytes:
 
 def encrypt(cleartext: str, password: bytes, mode) -> tuple[bytes, bytes]:
     # Prep for encryption. Used nonce by argon and AES
+    if mode == MODES.NONE:
+        return (cleartext.encode(), b"")
     nonce = secrets.randbits(96).to_bytes(length=12)
     secret = _argon_the_password(password, nonce)
     text = cleartext.encode()
@@ -95,6 +98,9 @@ def encrypt(cleartext: str, password: bytes, mode) -> tuple[bytes, bytes]:
     return (ciphertext, nonce)
     
 def decrypt(ciphertext: bytes, password: bytes, nonce: bytes, mode) -> bytes:
+    if mode == MODES.NONE:
+        return ciphertext
+    
     secret = _argon_the_password(password, nonce)
     cleartext: bytes = b""
 
