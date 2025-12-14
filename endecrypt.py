@@ -2,6 +2,7 @@ import secrets
 import os
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM, ChaCha20Poly1305
+from cryptography.hazmat.primitives.ciphers import modes, algorithms, Cipher
 from cryptography.hazmat.primitives.kdf.argon2 import Argon2id
 from cryptography.hazmat.primitives.padding import PKCS7
 
@@ -11,7 +12,8 @@ from enum import Enum
 
 class MODES(Enum):
     AESGCM = 1
-    CHACHA20POLY = 2
+    AESCTR = 2
+    CHACHA20POLY = 3
 
 def _argon_the_password(password: bytes, salt: bytes) -> bytes:
     # OWASP recommendation with 12288 kb of memory is 3 iterations with 1 lane, using a bit longer process
@@ -54,6 +56,24 @@ def _chachapoly_decryption(ciphertext: bytes, key: bytes, nonce: bytes) -> bytes
     cleartext = chacha.decrypt(nonce, ciphertext, None)
     return cleartext
 
+def _aes_ctr_encrypt(cleartext: bytes, key: bytes, nonce: bytes) -> bytes:
+    # This is abit sus, only 12 bytes of random and can fit 16 TODO: Do better
+    _ = int.from_bytes(nonce)
+    nonce = _.to_bytes(length=16)
+    aes = Cipher(algorithms.AES256(key), modes.CTR(nonce))
+    aesenc = aes.encryptor()
+    ciphertext = aesenc.update(cleartext) + aesenc.finalize()
+    return ciphertext
+
+def _aes_ctr_decrypt(ciphertext: bytes, key: bytes, nonce: bytes) -> bytes:
+    # This is abit sus, only 12 bytes of random and can fit 16 TODO: Do better
+    _ = int.from_bytes(nonce)
+    nonce = _.to_bytes(length=16)
+    aes = Cipher(algorithms.AES256(key), modes.CTR(nonce))
+    aesdec = aes.decryptor()
+    cleartext = aesdec.update(ciphertext) + aesdec.finalize()
+    return cleartext
+    
 
 def encrypt(cleartext: str, password: bytes, mode) -> tuple[bytes, bytes]:
     # Prep for encryption. Used nonce by argon and AES
@@ -65,6 +85,8 @@ def encrypt(cleartext: str, password: bytes, mode) -> tuple[bytes, bytes]:
     match mode:
         case MODES.AESGCM:
             ciphertext = _aes_gcm_encrypt(text, secret, nonce)
+        case MODES.AESCTR:
+            ciphertext = _aes_ctr_encrypt(text, secret, nonce)
         case MODES.CHACHA20POLY:
             ciphertext = _chachapoly_encryption(text, secret, nonce)
         case _:
@@ -79,6 +101,8 @@ def decrypt(ciphertext: bytes, password: bytes, nonce: bytes, mode) -> bytes:
     match mode:
         case MODES.AESGCM:
             cleartext = _aes_gcm_decrypt(ciphertext, secret, nonce)
+        case MODES.AESCTR:
+            cleartext = _aes_ctr_decrypt(ciphertext, secret, nonce)
         case MODES.CHACHA20POLY:
             cleartext = _chachapoly_decryption(ciphertext, secret, nonce)
         case _:
@@ -93,7 +117,12 @@ if __name__ == "__main__":
     print(encrypted[0], encrypted[1])
     print(decrypt(encrypted[0], b"test123", encrypted[1], MODES.AESGCM).decode("utf-8"))
 
-    text2 = "Cha cha is a dance"
-    encrypted2 = encrypt(text2, b"chacha12", MODES.CHACHA20POLY)
-    print(encrypted2[0], encrypted2[1])
-    print(decrypt(encrypted2[0], b"chacha12", encrypted2[1], MODES.CHACHA20POLY).decode("utf-8"))
+    text = "This is a test text with a counter"
+    encrypted = encrypt(text, b"test345", MODES.AESCTR)
+    print(encrypted[0], encrypted[1])
+    print(decrypt(encrypted[0], b"test345", encrypted[1], MODES.AESCTR).decode("utf-8"))
+
+    text = "Cha cha is a dance"
+    encrypted = encrypt(text, b"chacha12", MODES.CHACHA20POLY)
+    print(encrypted[0], encrypted[1])
+    print(decrypt(encrypted[0], b"chacha12", encrypted[1], MODES.CHACHA20POLY).decode("utf-8"))
