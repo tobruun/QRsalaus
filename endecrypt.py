@@ -1,5 +1,5 @@
 import secrets
-import os
+import base64
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM, ChaCha20Poly1305
 from cryptography.hazmat.primitives.ciphers import modes, algorithms, Cipher
@@ -15,6 +15,18 @@ class MODES(Enum):
     AESGCM = 1
     AESCTR = 2
     CHACHA20POLY = 3
+
+def _b32_encode(input: bytes) -> str:
+    input = base64.b32encode(input)
+    s : str = input.decode("ascii")
+    s = s.replace("=", "$")
+    return s
+
+def _b32_decode(input: str) -> bytes:
+    input = input.replace("$", "=")
+    b : bytes = input.encode("ascii")
+    b = base64.b32decode(b)
+    return b    
 
 def _argon_the_password(password: bytes, salt: bytes) -> bytes:
     # OWASP recommendation with 12288 kb of memory is 3 iterations with 1 lane, using a bit longer process
@@ -76,10 +88,10 @@ def _aes_ctr_decrypt(ciphertext: bytes, key: bytes, nonce: bytes) -> bytes:
     return cleartext
     
 
-def encrypt(cleartext: str, password: bytes, mode) -> tuple[bytes, bytes]:
+def encrypt(cleartext: str, password: bytes, mode) -> tuple[str, str]:
     # Prep for encryption. Used nonce by argon and AES
     if mode == MODES.NONE:
-        return (cleartext.encode(), b"")
+        return (cleartext, "")
     nonce = secrets.randbits(96).to_bytes(length=12)
     secret = _argon_the_password(password, nonce)
     text = cleartext.encode()
@@ -94,23 +106,29 @@ def encrypt(cleartext: str, password: bytes, mode) -> tuple[bytes, bytes]:
             ciphertext = _chachapoly_encryption(text, secret, nonce)
         case _:
             raise NotImplementedError("Encryption mode not found. Try using the MODES enum.")
+        
+    ciphertext_s = _b32_encode(ciphertext)
+    nonce_s = _b32_encode(nonce)
     
-    return (ciphertext, nonce)
+    return (ciphertext_s, nonce_s)
     
-def decrypt(ciphertext: bytes, password: bytes, nonce: bytes, mode) -> bytes:
+def decrypt(ciphertext: str, password: bytes, nonce: str, mode) -> bytes:
     if mode == MODES.NONE:
-        return ciphertext
+        return ciphertext.encode()
     
-    secret = _argon_the_password(password, nonce)
+    nonce_b = _b32_decode(nonce)
+    ciphertext_b = _b32_decode(ciphertext)
+    
+    secret = _argon_the_password(password, nonce_b)
     cleartext: bytes = b""
 
     match mode:
         case MODES.AESGCM:
-            cleartext = _aes_gcm_decrypt(ciphertext, secret, nonce)
+            cleartext = _aes_gcm_decrypt(ciphertext_b, secret, nonce_b)
         case MODES.AESCTR:
-            cleartext = _aes_ctr_decrypt(ciphertext, secret, nonce)
+            cleartext = _aes_ctr_decrypt(ciphertext_b, secret, nonce_b)
         case MODES.CHACHA20POLY:
-            cleartext = _chachapoly_decryption(ciphertext, secret, nonce)
+            cleartext = _chachapoly_decryption(ciphertext_b, secret, nonce_b)
         case _:
             raise NotImplementedError("Decryption mode not found. Try using the MODES enum.")
     
