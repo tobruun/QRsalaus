@@ -1,6 +1,4 @@
 import qrcode
-
-import base64
 import os
 
 from pyzbar.pyzbar import decode, ZBarSymbol
@@ -9,7 +7,7 @@ from PIL import Image
 import endecrypt
 
 ## generates the qr code
-def make_qr(input: str, password: str, mode: endecrypt.MODES):
+def make_qr(input: str, password: str, mode: endecrypt.MODES, filename: str):
     ## make the encrypt stuff for your qr
     encrypted_data = endecrypt.encrypt(input, password.encode(), mode)
 
@@ -27,10 +25,9 @@ def make_qr(input: str, password: str, mode: endecrypt.MODES):
 
     print(type(img))
 
-    save_path = "generated.png"
-    img.save(save_path) # pyright: ignore[reportArgumentType]
+    img.save(filename) # pyright: ignore[reportArgumentType]
 
-    print("Saved at:", os.path.abspath(save_path))
+    print("Saved at:", os.path.abspath(filename))
 
 ## read the qr
 def read_qr(qr, password: str):
@@ -70,10 +67,11 @@ def main():
 
     example = "http://google.com"
     password = "password123"
+    filename = "example.png"
 
-    make_qr(example, password, endecrypt.MODES.AESGCM)
+    make_qr(example, password, endecrypt.MODES.AESGCM, filename)
 
-    print(read_qr("generated.png", password))
+    print(read_qr(filename, password))
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 import cv2
 import base64
-from endecrypt import decrypt, MODES
+from endecrypt import decrypt, MODES, b32_decode
 
 def scan_camera():
     ## webcam
@@ -28,7 +28,7 @@ def scan_camera():
             print("\nEncrypted QR contents detected.")
             # Assume data is base64 string
             try:
-                data_bytes = base64.urlsafe_b64decode(data.encode())
+                data_bytes = b32_decode(data)
                 header_length = 13
                 header = data_bytes[-header_length:]
                 mode_byte = header[12]
