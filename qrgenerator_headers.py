@@ -3,7 +3,7 @@ import qrcode
 import base64
 import os
 
-from pyzbar.pyzbar import decode
+from pyzbar.pyzbar import decode, ZBarSymbol
 from PIL import Image
 
 import endecrypt
@@ -15,12 +15,15 @@ def make_qr(input: str, password: str, mode: endecrypt.MODES):
 
     #header variable that contains the nonce and encryption scheme
     header: bytes = encrypted_data[1] + mode.value.to_bytes(1)
+    print(header)
 
     #concatenate the encrypted message and header variables to create the final blob
     blob = encrypted_data[0] + header
 
+    blob_t = endecrypt.b32_encode(blob)
+
     ## makes the qr from what you used
-    img = qrcode.make(blob)
+    img = qrcode.make(blob_t)
 
     print(type(img))
 
@@ -32,20 +35,33 @@ def make_qr(input: str, password: str, mode: endecrypt.MODES):
 ## read the qr
 def read_qr(qr, password: str):
     ## makes a list of the image and it's format
-    decoded = decode(Image.open(qr))
+    decoded = decode(Image.open(qr), [ZBarSymbol.QRCODE])
     ## put the hash into data
     data = decoded[0].data.decode()
+    data = endecrypt.b32_decode(data)
 
-    header_length = 13  # Assuming the header is at most 32 bytes long
-    header = data[:header_length]
-    counter = header[12]
+    header_length = 13
+    header = data[-header_length:]
+    mode_byte = header[12]
     nonce = header[:12]
-    encrypted_data = data[header_length:]
+    encrypted_data = data[:-header_length]
+    mode = endecrypt.MODES.NONE
+
+    print(header)
+
+    if mode_byte == 1:
+        mode = endecrypt.MODES.AESGCM
+    elif mode_byte == 2:
+        mode = endecrypt.MODES.AESCTR
+    elif mode_byte == 3:
+        mode = endecrypt.MODES.CHACHA20POLY
+    else:
+        print("Invalid choice. Defaulting to NONE.")
 
     try:
-        decrypted_text = endecrypt.decrypt(encrypted_data, password.encode(), nonce, counter)
+        decrypted_text = endecrypt.decrypt(encrypted_data, password.encode(), nonce, mode)
         print(f"\nDecrypted result:")
-        print(decrypted_text)
+        print(decrypted_text.decode())
     except Exception as e:
         print(f"\nDecryption failed: {e}")
 
@@ -55,9 +71,9 @@ def main():
     example = "http://google.com"
     password = "password123"
 
-    make_qr(example, password, endecrypt.MODES.NONE)
+    make_qr(example, password, endecrypt.MODES.AESGCM)
 
-    #print(read_qr("generated.png", password))
+    print(read_qr("generated.png", password))
 
 
 if __name__ == "__main__":
