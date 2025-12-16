@@ -26,7 +26,7 @@ def scan_camera():
 
         if data:
             print("\nEncrypted QR contents detected.")
-            # Assume data is base64 string
+            # Assume data is edited base32 string
             try:
                 data_bytes = b32_decode(data)
                 header_length = 13
