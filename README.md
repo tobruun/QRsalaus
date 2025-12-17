@@ -1,6 +1,6 @@
 # Secure QR
 
-Serverless option for encrypted QR-codes. This project includes a proof of concept with a working python implementation. 
+Serverless option for encrypted QR-codes. This project includes a proof of concept with a working python implementation. This is a project work for the course Cybersecurity Project in University of Oulu.
 
 The basic idea is to generate safe, encrypted and available offline QR-codes. QR-codes are secured with a password which are hashed using Argon2id. This project includes a spesification for implementation to other projects.
 
